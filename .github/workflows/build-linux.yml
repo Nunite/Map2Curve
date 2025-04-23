@@ -10,7 +10,11 @@ jobs:
   build-linux:
     name: Linux CI Check
     runs-on: ubuntu-latest
-    
+    strategy:
+      matrix:
+        build_type: [Release]
+      fail-fast: false
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -22,88 +26,25 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
 
-    - name: Direct source code patching
-      run: |
-        # 创建备份目录
-        mkdir -p backup
-        cp header/entity.cpp backup/
-        cp header/entity.h backup/
-        
-        # 创建兼容性头文件
-        cat > header/linux_compat.h << EOF
-#ifndef LINUX_COMPAT_H
-#define LINUX_COMPAT_H
-
-#include <cstdint>
-#include <vector>
-#include <string>
-#include <memory>
-#include <cmath>
-
-// 基本类型定义
-typedef int btable;
-
-// 跨平台宏
-#define COMPAT_STOF(x) std::stof(std::string(x))
-#define COMPAT_STOD(x) std::stod(std::string(x))
-#define STRING_2D_ARRAY(name, dim1, dim2) std::vector<std::vector<std::string>> name(dim1, std::vector<std::string>(dim2))
-#define INT_ARRAY(name, size) int* name = new int[size]
-#define NO_DIRENT 1
-
-#endif // LINUX_COMPAT_H
-EOF
-
-        # 在 entity.cpp 开头添加包含
-        sed -i '1i#include "linux_compat.h"' header/entity.cpp
-        
-        # 修复 entity.cpp 中的 btable 和 b_import 声明
-        sed -i 's/INT_ARRAY(btable, t_brushes);/int* btable = new int[t_brushes];/g' header/entity.cpp
-        sed -i 's/STRING_2D_ARRAY(b_import, t_faces, 22);/std::vector<std::vector<std::string>> b_import(t_faces, std::vector<std::string>(22));/g' header/entity.cpp
-        
-        # 将 msvc_compat.h 替换为空文件
-        echo "// 空的兼容性存根" > header/msvc_compat.h
-        
-        # 在其他文件开头添加包含
-        sed -i '1i#include "linux_compat.h"' header/WAD3.cpp
-        sed -i '1i#include "linux_compat.h"' header/RMF.cpp
-
-    - name: Verify patches
-      run: |
-        echo "==== entity.cpp 头部 ===="
-        head -n 10 header/entity.cpp
-        
-        echo -e "\n==== 特定修复的行 ===="
-        grep -n "btable = new int" header/entity.cpp || echo "未找到修复的 btable 行"
-        grep -n "std::vector<std::vector<std::string>> b_import" header/entity.cpp || echo "未找到修复的 b_import 行"
-        
-        echo -e "\n==== linux_compat.h 内容 ===="
-        cat header/linux_compat.h
-
     - name: Create build directory
       run: cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure CMake
       working-directory: ${{github.workspace}}/build
-      run: |
-        cmake $GITHUB_WORKSPACE \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-fpermissive -std=c++17 -Wno-narrowing"
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
 
-    - name: Build with verbose output
+    - name: Build
       working-directory: ${{github.workspace}}/build
-      run: VERBOSE=1 cmake --build . --config Release
+      shell: bash
+      run: cmake --build . --config ${{matrix.build_type}} -j $(nproc)
       continue-on-error: true
 
-    - name: Generate modified source archive
-      if: always()
-      run: |
-        tar -czvf modified_sources.tar.gz header/*.cpp header/*.h
-        echo "如需进一步调试，可下载修改后的源码压缩包"
-    
-    - name: Upload modified sources
-      if: always()
+    - name: Upload Artifacts
+      if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: modified-sources
-        path: modified_sources.tar.gz
-        retention-days: 3
+        name: Map2Curve-Linux-${{ matrix.build_type }}
+        path: |
+          ${{github.workspace}}/build/bin/*
+        retention-days: 5
