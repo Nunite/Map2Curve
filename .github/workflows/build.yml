@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build Windows
 
 on:
   push:
@@ -7,16 +7,20 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
     strategy:
       matrix:
         os: [windows-latest]
         build_type: [Release]
+      fail-fast: false
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Set up CMake
       uses: lukka/get-cmake@latest
@@ -25,19 +29,197 @@ jobs:
       run: cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure CMake
-      shell: bash
       working-directory: ${{github.workspace}}/build
+      shell: bash
       run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
 
     - name: Build
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: cmake --build . --config ${{matrix.build_type}}
+      run: cmake --build . --config ${{matrix.build_type}} --parallel
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      if: success()
+      uses: actions/upload-artifact@v4
       with:
-        name: Map2Curve-${{ matrix.os }}
+        name: Map2Curve-Windows-${{ matrix.build_type }}
         path: |
           ${{github.workspace}}/build/bin/*
-          !${{github.workspace}}/build/bin/*.pdb 
+          !${{github.workspace}}/build/bin/*.pdb
+        retention-days: 5
+
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build_type: [Release]
+      fail-fast: false
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    # 修复 macOS 特定问题和源码问题
+    - name: Fix compatibility issues
+      run: |
+        # 1. 修复头文件问题
+        echo "// Empty compatibility stub - macOS version" > header/msvc_compat.h
+        
+        mkdir -p build/compat_include
+        echo "#ifndef CSTDALIGN_H" > build/compat_include/cstdalign
+        echo "#define CSTDALIGN_H" >> build/compat_include/cstdalign
+        echo "// Empty compatibility stub" >> build/compat_include/cstdalign
+        echo "#endif" >> build/compat_include/cstdalign
+
+        # 2. 添加缺失的头文件包含
+        echo '#include <cstdint>' > temp_header.txt
+        cat header/WAD3.cpp >> temp_header.txt
+        mv temp_header.txt header/WAD3.cpp
+
+        # 3. 创建 CHAR_VLA 宏定义
+        echo "#ifndef PLATFORM_COMPAT_H" > header/platform_compat.h
+        echo "#define PLATFORM_COMPAT_H" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#include <vector>" >> header/platform_compat.h
+        echo "#include <memory>" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#if defined(_MSC_VER) && !defined(__clang__)" >> header/platform_compat.h
+        echo "    // MSVC implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) std::vector<char> name(size)" >> header/platform_compat.h
+        echo "#else" >> header/platform_compat.h
+        echo "    // GCC/Clang implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) char name[size]" >> header/platform_compat.h
+        echo "#endif" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#endif // PLATFORM_COMPAT_H" >> header/platform_compat.h
+
+        # 4. 修复 RMF.cpp
+        echo '#include "platform_compat.h"' > temp_rmf.txt
+        cat header/RMF.cpp >> temp_rmf.txt
+        mv temp_rmf.txt header/RMF.cpp
+
+    - name: Install macOS dependencies
+      run: |
+        brew update
+        brew install cmake coreutils
+      continue-on-error: true
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{github.workspace}}/build
+
+    - name: Configure CMake
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS="-I${{github.workspace}}/build/compat_include -DNO_DIRENT=1"
+
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: |
+        # 使用 macOS 上可用的命令
+        cores=$(sysctl -n hw.ncpu)
+        cmake --build . --config ${{matrix.build_type}} -j $cores
+
+    - name: Upload Artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Map2Curve-macOS-${{ matrix.build_type }}
+        path: |
+          ${{github.workspace}}/build/bin/*
+        retention-days: 5
+
+  build-linux:
+    name: Build on Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Release]
+      fail-fast: false
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    # 修复 Linux 特定问题和源码问题
+    - name: Fix compatibility issues
+      run: |
+        # 1. 修复头文件问题
+        echo "// Empty compatibility stub - Linux version" > header/msvc_compat.h
+        
+        mkdir -p build/compat_include
+        echo "#ifndef CRTDEFS_H" > build/compat_include/crtdefs.h
+        echo "#define CRTDEFS_H" >> build/compat_include/crtdefs.h
+        echo "// Empty compatibility stub" >> build/compat_include/crtdefs.h
+        echo "#endif" >> build/compat_include/crtdefs.h
+        
+        echo "#ifndef CSTDALIGN_H" > build/compat_include/cstdalign
+        echo "#define CSTDALIGN_H" >> build/compat_include/cstdalign
+        echo "// Empty compatibility stub" >> build/compat_include/cstdalign
+        echo "#endif" >> build/compat_include/cstdalign
+
+        # 2. 添加缺失的头文件包含
+        echo '#include <cstdint>' > temp_header.txt
+        cat header/WAD3.cpp >> temp_header.txt
+        mv temp_header.txt header/WAD3.cpp
+
+        # 3. 创建 CHAR_VLA 宏定义
+        echo "#ifndef PLATFORM_COMPAT_H" > header/platform_compat.h
+        echo "#define PLATFORM_COMPAT_H" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#include <vector>" >> header/platform_compat.h
+        echo "#include <memory>" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#if defined(_MSC_VER) && !defined(__clang__)" >> header/platform_compat.h
+        echo "    // MSVC implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) std::vector<char> name(size)" >> header/platform_compat.h
+        echo "#else" >> header/platform_compat.h
+        echo "    // GCC/Clang implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) char name[size]" >> header/platform_compat.h
+        echo "#endif" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#endif // PLATFORM_COMPAT_H" >> header/platform_compat.h
+
+        # 4. 修复 RMF.cpp
+        echo '#include "platform_compat.h"' > temp_rmf.txt
+        cat header/RMF.cpp >> temp_rmf.txt
+        mv temp_rmf.txt header/RMF.cpp
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+      continue-on-error: true
+
+    - name: Debug - Show modified files
+      run: |
+        cat header/platform_compat.h
+        head -n 10 header/WAD3.cpp
+        head -n 10 header/RMF.cpp
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{github.workspace}}/build
+
+    - name: Configure CMake
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS="-I${{github.workspace}}/build/compat_include -DNO_DIRENT=1"
+
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake --build . --config ${{matrix.build_type}} -j $(nproc)
+
+    - name: Upload Artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Map2Curve-Linux-${{ matrix.build_type }}
+        path: |
+          ${{github.workspace}}/build/bin/*
+        retention-days: 5 

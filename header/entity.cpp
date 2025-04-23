@@ -478,9 +478,17 @@ void entity::CreateBrushes()
 		#endif
 		
 		// 使用兼容宏替代可变长度数组
+		#ifdef __linux__
+		int* btable = new int[t_brushes];
+		#else
 		INT_ARRAY(btable, t_brushes);
+		#endif
 		// 使用兼容宏替代可变长度数组
-		STRING_2D_ARRAY(b_import, t_faces, 22); // imported brush array; stores all available informations about each brush
+		#ifdef __linux__
+		std::vector<std::vector<std::string>> b_import(t_faces, std::vector<std::string>(22));
+		#else
+		STRING_2D_ARRAY(b_import, t_faces, 22);
+		#endif // imported brush array; stores all available informations about each brush
 		
 		last = 1; int lastfam = 0;
 		for(int b = 0, maxf = 0; b < t_brushes; b++) // brush loop
