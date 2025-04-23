@@ -1,13 +1,13 @@
-
-#ifndef __XXXXXXXXX_H_INCLUDED__
-#define __XXXXXXXXX_H_INCLUDED__
+#ifndef __BLANK_H_INCLUDED__
+#define __BLANK_H_INCLUDED__
 
 #include <string>
 #include <vector>
 
 using namespace std;
 
-/* ===== XXXXXXXXX ===== */
+/* ===== 空白模板头文件 ===== */
 
+// 这是一个空白的头文件模板，用于MSVC兼容性
 
 #endif

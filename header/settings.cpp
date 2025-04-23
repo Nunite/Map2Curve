@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "msvc_compat.h"
 #include "file.h"
 #include "utils.h"
 #include "WAD3.h"
@@ -143,8 +144,10 @@ void GetSettings(string cfgstr, vector<string> &SettingList, vector<string> &lsl
 	if(dev) { cout << endl << " Copying line by line into new config string..." << endl; }
 	#endif
 	
-	bool cfg_scanned[ctr]; for (int i = 0; i<ctr; i++) cfg_scanned[i] = 0;
-	string cfg_lines[ctr];
+	// 使用std::vector替换可变长度数组
+	std::vector<bool> cfg_scanned(ctr, false);
+	std::vector<string> cfg_lines(ctr);
+	
 	int start = 0;
 	int end = 0;
 	for (int i = 0; i<ctr; i++) {
@@ -812,8 +815,8 @@ ctable* createTableS(int CurveCount, vector<string> &SettingsList, bool IDOffset
 	bool dev = 0;
 	ctable *Table = new ctable[CurveCount];
 	
-	// create Evaluation List
-	setting_list EvalList[CurveCount];
+	// 使用std::vector替换可变长度数组
+	std::vector<setting_list> EvalList(CurveCount);
 	for (int i=0; i<CurveCount; i++)
 		EvalList[i].CreateList(slist, slist_id, slist_type, slist_min, slist_max);
 	

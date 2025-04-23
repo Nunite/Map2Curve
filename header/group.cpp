@@ -3,6 +3,7 @@
 #include "settings.h"
 #include "file.h"
 #include "utils.h"
+#include "msvc_compat.h"
 
 #include <iostream>
 #include <fstream>
@@ -43,6 +44,7 @@ ostream &operator<<(ostream &ostr, group &g)
 		ostr << "     Entity " << e << " Origin " << Entity.Origin << " Euler " << Entity.Angles << " sec " << Entity.SecID << " dID " << Entity.dID << " entID " << Entity.eID << endl;
 	}
 	ostr << endl;
+	return ostr;
 }
 
 bool group::IsSecInRange(int secID)
@@ -1226,9 +1228,9 @@ void group::RotateVectors()
 	float steps = -(360.0/cTable[g].res);
 	
 	// rotation steps for GRID circles
-	float steps_grid_body[cTable[g].res];
-	float steps_grid_base[cTable[g].res];
-	float steps_grid_head[cTable[g].res];
+	FLOAT_ARRAY(steps_grid_body, cTable[g].res);
+	FLOAT_ARRAY(steps_grid_base, cTable[g].res);
+	FLOAT_ARRAY(steps_grid_head, cTable[g].res);
 	if (cTable[g].type==1)
 	{
 		circle circleA; circleA.Vertices = new vertex[cTable[g].res]; circleA.build_circleGrid(cTable[g].res, 16, 0);
@@ -2129,12 +2131,12 @@ void group::GetHorLengths()
 						bool PO_L = 0; if (Face.PitchO==hPitch_temp[Face.group])  PO_L = 1;
 						bool PO_S = 0; if (Face.PitchO==hPitch_temp2[Face.group]) PO_S = 1;
 						
-						// Im Falle von Grid Path (type=2) sind alle Kanten üblicherweise gleich lang. Das Finden des richtigen Quell-Faces ist daher nicht mit der normalen Methode möglich.
-						// Alle Kanten sind grundsätzlich gleich lang. Unterschiedlich lange oder Null-Kanten treten nur bei Gap-Brushes auf.
-						// Auf die Normale Methode verzichten und bei nicht-Gap-Brushes nur den jeweiligen kleinsten oder größten Pitch suchen, um HSource zu ermitteln.
+						// Im Falle von Grid Path (type=2) sind alle Kanten ï¿½blicherweise gleich lang. Das Finden des richtigen Quell-Faces ist daher nicht mit der normalen Methode mï¿½glich.
+						// Alle Kanten sind grundsï¿½tzlich gleich lang. Unterschiedlich lange oder Null-Kanten treten nur bei Gap-Brushes auf.
+						// Auf die Normale Methode verzichten und bei nicht-Gap-Brushes nur den jeweiligen kleinsten oder grï¿½ï¿½ten Pitch suchen, um HSource zu ermitteln.
 						// Bei Gap-Brushes dann die normale Methode nutzen.
 						
-						// Normale Methode: über kantenlänge && (Type!=2 || type==2 && GAP)
+						// Normale Methode: ï¿½ber kantenlï¿½nge && (Type!=2 || type==2 && GAP)
 						// Pitch Methode: Type==2 && !GAP
 						
 						// Long Edge
@@ -2362,7 +2364,7 @@ void group::GetHorLengths()
 								face &LFace = LBrush.Faces[ff];
 								if ( LFace.FaceIsValid(2,1,1,1) && LFace.ugroup==Face.ugroup ) //&& Face.LHSourceL==nullptr && Face.LHSourceS==nullptr
 								{
-									// Bei der Suche nach dem letzten gültigen hSourceFace sollen wedges mit Edgelen 0 bei Hsrcshift0 übersprungen werden
+									// Bei der Suche nach dem letzten gï¿½ltigen hSourceFace sollen wedges mit Edgelen 0 bei Hsrcshift0 ï¿½bersprungen werden
 									//if(!LBrush.IsGap || ( cTable[g].hshiftsrc==1 && LBrush.IsGap))
 									{
 										Face.LHSourceL = LFace.HSourceL;

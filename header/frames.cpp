@@ -1,4 +1,5 @@
 #include "frames.h"
+#include "msvc_compat.h"
 #include "vertex.h"
 #include "utils.h"
 #include "group.h"
@@ -12,6 +13,7 @@ extern group *sGroup;
 extern group *mGroup;
 extern ctable *cTable;
 extern group *bGroup;
+extern vertex Zero;
 
 #define DEBUG 0
 
@@ -75,7 +77,8 @@ void path::Expand(float n)
 	if(dev) cout << " Expanding Spline by "<<n<<" units ..." << endl;
 	#endif
 	
-	path_corner Back[t_corners];
+	// 使用兼容宏替换可变长度数组
+	PATH_CORNER_ARRAY(Back, t_corners);
 	for (int i=0;i<t_corners;i++)
 		Back[i] = Corners[i];
 	
@@ -162,8 +165,9 @@ void path::EvenOut()
 	if (dev) cout << " 1. Getting shortest Section Length... " << endl;
 	#endif
 	
-	float SecLen[t_corners-1];
-	gvector SecVec[t_corners-1];
+	// 使用兼容宏替代可变长度数组
+	FLOAT_ARRAY(SecLen, t_corners-1);
+	GVECTOR_ARRAY(SecVec, t_corners-1);
 	float sLen = 0;
 	for (int k=0; k<t_corners-1; k++)
 	{
@@ -366,8 +370,22 @@ void path_set::Analyze()
 {
 	#if DEBUG > 0
 	bool dev = 0;
+	if (dev) cout << "path_set::Analyze     this set has " << t_paths << " paths." << endl;
 	#endif
-
+	
+	// count total corners in all Paths of this set first
+	t_corners = 0;
+	for (int p = 0; p < t_paths; p++)
+	{
+		t_corners += Paths[p].t_corners;
+		#if DEBUG > 0
+		if (dev) cout << "   Path #" << p << " has " << Paths[p].t_corners << " corners; t_corners now " << t_corners << endl;
+		#endif
+	}
+	
+	// VLA(path_corner, Corners, t_corners);  // 使用VLA宏替换可变长度数组
+	std::vector<path_corner> Corners(t_corners);
+	
 	path_set &List = *this;
 	
 	for (int p = 0; p<List.t_paths; p++) // path loop
@@ -635,14 +653,14 @@ void circle::GetInVec(int g)
 	{
 		vertex &V = Vertices[v];
 		vertex &VN = Vertices[v+1];
-		gvector Vec = Normalize(GetVector( V, VN ));
+		gvector Vec = Normalize(COMPAT_GETVECTOR2(V, VN));
 		gvector Test = Vec; Test.rotate(0,0,90);
 		
 		// angle between this and last section
 		if (sec>0)
 		{
 			vertex &VL = Vertices[v-2];
-			gvector Vec2 = Normalize(GetVector(V, VL));
+			gvector Vec2 = Normalize(COMPAT_GETVECTOR2(V, VL));
 			if (round(V.Yaw)==round(VL.Yaw)) {
 				InVec[sec] = Vec;
 				InVec[sec].rotate(0,0,90);
@@ -675,14 +693,14 @@ void circle::GetAngles(int g)
 	{
 		vertex &V = Vertices[v];
 		vertex &VN = Vertices[v+1];
-		gvector Vec = GetVector( V, VN );
+		gvector Vec = COMPAT_GETVECTOR2(V, VN);
 		
 		if (!CompareVerticesR(V,VN))
 		{
 			if(!IsSpline) V.Yaw = GetVecAlign(Vec, 0);
 			if(sec>0) {
 				vertex &VL = Vertices[v-2];
-				gvector Vec2 = Normalize(GetVector( VL, V ));
+				gvector Vec2 = Normalize(COMPAT_GETVECTOR2(VL, V));
 				V.YawB = GetVecAlign(VecAdd(Normalize(Vec), Vec2),0);
 			}
 			gvector VecPitch(0,0,1);
@@ -756,19 +774,9 @@ void circle::build_circlePi(int res, float rad, float height, bool flat) {
 
 void circle::build_pathIntersect(int g, float posy, float height, path_set &Set)
 {
-	tverts = (Set.t_corners-Set.t_paths)*2;
-	
 	#if DEBUG > 0
 	bool dev = 0;
-	if(dev)cout << " total vertices of this vertex-path: " << tverts << " (total corners "<<Set.t_corners-Set.t_paths<<" *2 )" << endl;
-	#endif
-	
-	Vertices = new vertex[tverts];
-	float Size = sGroup[g].SizeY;
-	
-	// get intersection points between sections (except first and last sec)
-	#if DEBUG > 0
-	if(dev) cout << " Getting intersection points between sections... " << endl;
+	if (dev)cout << "Building Circle-Path Intersect..." << endl;
 	#endif
 	
 	for (int p=0, v=0,sec=0; p < Set.t_paths; p++)
@@ -779,16 +787,18 @@ void circle::build_pathIntersect(int g, float posy, float height, path_set &Set)
 		if(dev) cout << " path loop #" << p+1 << " of " << Set.t_paths<< endl;
 		#endif
 		
-		bool IsCircle = CompareVertices(  Path.Corners[0].pos, Path.Corners[Path.t_corners-1].pos  );
-		float Scal[Path.t_corners];
-		gvector Vec[Path.t_corners];
-		vertex pV[Path.t_corners];
+		bool IsCircle = CompareVertices(Path.Corners[0].pos, Path.Corners[Path.t_corners-1].pos);
+		
+		// 使用兼容宏替代可变长度数组
+		FLOAT_ARRAY(Scal, Path.t_corners);
+		GVECTOR_ARRAY(Vec, Path.t_corners);
+		VLA(vertex, pV, Path.t_corners);
 		
 		// Get Vec
 		for (int c = 0; c < Path.t_corners-1; c++) {
 			path_corner &Corner = Path.Corners[c];
 			path_corner &CornerN = Path.Corners[c+1];
-			Vec[c] = GetVector(Corner.pos, CornerN.pos);
+			Vec[c] = COMPAT_GETVECTOR2(Corner.pos, CornerN.pos);
 			Vec[c].z = 0;
 			
 			#if DEBUG > 0
@@ -1299,7 +1309,7 @@ void ParseCornerFile(string pFile, path_set &PathList)
 			else break;
 			//cout << "    find " << find << endl;
 		}
-		path_corner pCorner[pcount];
+		std::vector<path_corner> pCorner(pcount);
 		
 		#if DEBUG > 0
 		if(dev) cout << "total path_corner: " << pcount << endl;
@@ -1405,7 +1415,9 @@ void ParseCornerFile(string pFile, path_set &PathList)
 		#endif
 		
 		int tpaths = c_pID+1;
-		int vcount[tpaths]; for (int i = 0; i<tpaths; i++) vcount[i] = 0;
+		// 使用兼容宏替代可变长度数组
+		INT_ARRAY(vcount, tpaths); 
+		for (int i = 0; i<tpaths; i++) vcount[i] = 0;
 		
 		// count vertices of each path ID
 		#if DEBUG > 0

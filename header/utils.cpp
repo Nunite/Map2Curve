@@ -9,10 +9,15 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip> // precision
-#include <dirent.h> // dir, opendir, readdir, closedir
 #include <math.h> // floorf, pow, sqrt, isnan, isinf, round
 #include <sstream> // stringstream
 #include <cwchar>
+
+#if defined(_MSC_VER) || defined(NO_DIRENT)
+#include <Windows.h>
+#else
+#include <dirent.h> // dir, opendir, readdir, closedir
+#endif
 
 using namespace std;
 
@@ -369,16 +374,31 @@ string LoadTextFile(string path)
 // get file list of a directory and store it in the passed vector
 void GetFileList(string path, vector<string> &list)
 {
-	const char * c_path = path.c_str();
-	DIR *dir;
-	struct dirent *ent;
-	if ((dir = opendir (c_path)) != NULL) {
-	  // print all the files and directories within directory
-	  while ((ent = readdir (dir)) != NULL) {
-	    list.push_back(ent->d_name);
-	  }
-	  closedir (dir);
-	}
+#if defined(_MSC_VER) || defined(NO_DIRENT) || defined(_WIN32)
+    // Windowså®žçŽ° - ä½¿ç”¨FindFirstFile/FindNextFile API
+    WIN32_FIND_DATAA findData;
+    string searchPath = path + "\\*";
+    HANDLE hFind = FindFirstFileA(searchPath.c_str(), &findData);
+    
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            list.push_back(findData.cFileName);
+        } while (FindNextFileA(hFind, &findData));
+        FindClose(hFind);
+    }
+#else
+    // éžWindowså®žçŽ° - ä½¿ç”¨dirent.h
+    const char * c_path = path.c_str();
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (c_path)) != NULL) {
+      // print all the files and directories within directory
+      while ((ent = readdir (dir)) != NULL) {
+        list.push_back(ent->d_name);
+      }
+      closedir (dir);
+    }
+#endif
 }
 
 int CheckFileType (string p)
@@ -444,13 +464,13 @@ float easing(float x, int mode)
 
 float GetIsectCircleLine(float rad, float x)
 {
-	// circle (x-m1)²+(y-m2)² = r²
-	// (x)²+(y)² = r²
+	// circle (x-m1)ï¿½+(y-m2)ï¿½ = rï¿½
+	// (x)ï¿½+(y)ï¿½ = rï¿½
 	// straight line x = 32;
-	// x² - r² = -y²
-	// 1024-25600 = -y²
-	// -24576 = -y²
-	// 24576 = y²
+	// xï¿½ - rï¿½ = -yï¿½
+	// 1024-25600 = -yï¿½
+	// -24576 = -yï¿½
+	// 24576 = yï¿½
 	// y = 156,76
 	
 	float ext1 = pow(x,2) - pow(rad,2);
@@ -573,23 +593,33 @@ bool CompareFloatDeci(float N1, float N2, int deciplace)
 		return false;
 }
 
-bool IsNULL(double n)
+bool IsNULL(int n)
 {
-	if (floorf(n*1000)/1000 == 0) return true;
-	else return false;
+    bool null = 0;
+    if (std::isnan(static_cast<double>(n)) || std::isinf(static_cast<double>(n))) null = 1;
+    else if (n == 0) null = 1;
+    return null;
+}
+
+bool IsNULL(float n)
+{
+    bool null = 0;
+    if (std::isnan(n) || std::isinf(n)) null = 1;
+    else if (n == 0) null = 1;
+    return null;
 }
 
 bool IsValid(int n)
 {
 	bool valid = 0;
-	if (isnan(n)||isinf(n)) valid = 0; else valid = 1;
+	if (std::isnan(static_cast<double>(n)) || std::isinf(static_cast<double>(n))) valid = 0; else valid = 1;
 	return valid;
 }
 
 bool IsValid(float n)
 {
 	bool valid = 0;
-	if (isnan(n)||isinf(n)) valid = 0; else valid = 1;
+	if (std::isnan(n) || std::isinf(n)) valid = 0; else valid = 1;
 	return valid;
 }
 

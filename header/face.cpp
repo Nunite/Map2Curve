@@ -1,7 +1,7 @@
 #include "face.h"
-#include "vertex.h"
-#include "utils.h"
+#include "msvc_compat.h"
 #include "settings.h"
+#include "utils.h"
 #include "file.h"
 #include "group.h"
 
@@ -75,7 +75,8 @@ void CoutBrushFacesDevInfo(brush &Brush, int b, int g, bool IsInRange)
 				CoutFacesDevInfo(Brush,Face,f);
 			}
 		}
-		cout << ios_base::unsetf << endl;
+		// 重置iostream的格式标志
+		cout.unsetf(ios_base::fixed);
 		cout << endl;
 	}
 }
@@ -260,9 +261,10 @@ bool face::GetPlanarity()
 	#endif
 	
 	int vc = Face.vcount;
-	gvector Edges[vc];
-	gvector Normals[vc];
-	float Scalar[vc];
+	// 使用兼容宏替代可变长度数组
+	GVECTOR_ARRAY(Edges, vc);
+	GVECTOR_ARRAY(Normals, vc);
+	FLOAT_ARRAY(Scalar, vc);
 	
 	// create NormalVectors from all Face-Edges
 	for (int i = 0; i<vc; i++)
@@ -1849,14 +1851,15 @@ void GetBaseEdges(face &Face)
 		if (dev) cout << "   Current Centroid is " << Face.Centroid << endl;
 		#endif
 		
-		float sList[Face.vcount]; // scalar list
+		// 使用std::vector替换可变长度数组
+		std::vector<float> sList(Face.vcount, 0.0f); // scalar list
 		int s = 0, b = 0, s2 = 0, b2 = 0;
 		
 		// create vectors from vertices and centroid of current Face and then scalar products of these vectors and the texture vector to find the base edge (rather base "vertex")
 		for (int v = 0; v<Face.vcount; v++)
 		{
 			// Get Dot Product
-			gvector VecC = GetVector(cen, Face.Vertices[v]);
+			gvector VecC = COMPAT_GETVECTOR2(cen, Face.Vertices[v]);
 			sList[v] = GetDot(*TVec, VecC);
 			
 			#if DEBUG > 0
@@ -1866,7 +1869,6 @@ void GetBaseEdges(face &Face)
 			// Get Adjacent Length
 			if (sList[v]>sList[s]) {s = v;}
 			if (sList[v]<sList[b]) {b = v;}
-			
 		}
 		if (vec==0)
 		{
@@ -1934,12 +1936,13 @@ void GetBaseEdgesC(face &Face)
 		if (dev) cout << "   Current Centroid is " << Face.Centroid << endl;
 		#endif
 		
-		float sList[Face.vcountC];
+		// 使用std::vector替换可变长度数组
+		std::vector<float> sList(Face.vcountC, 0.0f);
 		int s = 0;
 		// create vectors from vertices and centroid of current Face and then scalar products of these vectors and the texture vector to find the base edge (rather base "vertex")
 		for (int v = 0; v<Face.vcountC; v++)
 		{
-			gvector VecC = Normalize(GetVector(cen, Face.VerticesC[v]));
+			gvector VecC = Normalize(COMPAT_GETVECTOR2(cen, Face.VerticesC[v]));
 			sList[v] = GetDot(*TVec, VecC);
 			
 			#if DEBUG > 0

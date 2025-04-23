@@ -1,10 +1,13 @@
 #include "file.h"
+#include "msvc_compat.h"
 #include "settings.h"
 #include "group.h"
 #include "vertex.h"
 #include "WAD3.h"
 #include "utils.h"
 #include "face.h"
+#include "export.h"
+#include "RMF.h"
 
 #include <iostream>
 #include <string>
@@ -2510,11 +2513,11 @@ void file::createDetailGroup(int g)
 			if (dev) cout << " L_DRAW " <<  L_DRAW << " L_SKIP " << L_SKIP << " L_DRAW_RAND " << L_DRAW_RAND << " F_DRAW " << F_DRAW << " F_SKIP " << F_SKIP << endl;
 			#endif
 			
-			bool R_DRAW[cTable[g].res]; for (int i=0; i<cTable[g].res; i++) R_DRAW[i] = 1;
+			std::vector<bool> R_DRAW(cTable[g].res, true);
 			if ( (G_DRAW_RAND&&L_DRAW_RAND) || (!G_DRAW_RAND&&L_DRAW_RAND) )
 			for (int i=0; i<cTable[g].res; i++) {
 				int RandZero = rand() % 10;
-				if (RandZero % 2 != 0) R_DRAW[i] = 0;
+				if (RandZero % 2 != 0) R_DRAW[i] = false;
 			}
 			
 			for (int b=0, draw_ctr, skip_ctr; b<dGroup.t_brushes; b++) // Brushes

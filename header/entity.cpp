@@ -6,6 +6,8 @@
 #include "settings.h"
 #include "utils.h"
 #include "file.h"
+#include "msvc_compat.h"
+#include "group.h"
 
 #include <string>
 #include <vector>
@@ -270,7 +272,7 @@ void entity::GetKeyValues_M2C()
 				if (Keys[k].name=="classname") 	key_classname = Keys[k].value;
 				if (Keys[k].name=="target") 	{ key_target = Keys[k].value;		/*KeyTypes.push_back(KT_TARGET);*/ }
 				if (Keys[k].name=="targetname") { key_targetname = Keys[k].value;	/*KeyTypes.push_back(KT_TARGETNAME);*/ }
-				if (Keys[k].name=="scale") 		{ key_scale = stof(Keys[k].value);	KeyTypes.push_back(KT_SCALE); }
+				if (Keys[k].name=="scale") 		{ key_scale = COMPAT_STOF(Keys[k].value);	KeyTypes.push_back(KT_SCALE); }
 			}
 		}
 		if (i>=p1+p3) j++;
@@ -293,7 +295,7 @@ void entity::GetKeyValues_M2C()
 		
 		// key values concerning detail groups are stored in the entity itself rather than in a contruction table
 		if (name=="d_enable") 		d_enable 		= stoi(value);
-		if (name=="d_pos") 	 		d_pos 			= stof(value);
+		if (name=="d_pos") 	 		d_pos 			= COMPAT_STOF(value);
 		if (name=="d_autopitch") 	d_autopitch 	= stoi(value);
 		if (name=="d_autoyaw") 	 	d_autoyaw 		= stoi(value);
 		if (name=="d_separate")  	d_separate 		= stoi(value);
@@ -324,13 +326,13 @@ void entity::GetKeyValues_M2C()
 		if (Values.size()>2)
 		{
 			if (name=="angles") {
-				Euler NewAngles(stof(Values[2]), stof(Values[0]), stof(Values[1])); // Keyvalue Order (Y Z X) -> [ 1 2 0 ]
+				Euler NewAngles(COMPAT_STOF(Values[2]), COMPAT_STOF(Values[0]), COMPAT_STOF(Values[1])); // Keyvalue Order (Y Z X) -> [ 1 2 0 ]
 				RotateEntity(NewAngles,0);
 				Angles = NewAngles;
 				KeyTypes.push_back(KT_ANGLES);
 			}
 			if (name=="origin") {
-				Origin.x = stof(Values[0]); Origin.y = stof(Values[1]); Origin.z = stof(Values[2]);
+				Origin.x = COMPAT_STOF(Values[0]); Origin.y = COMPAT_STOF(Values[1]); Origin.z = COMPAT_STOF(Values[2]);
 				//KeyTypes.push_back(KT_ORIGIN);
 			}
 		}
@@ -350,7 +352,7 @@ void entity::GetIntMapSettings(vector<string> &MapSettings)
 	vector<int> &ID_List = gFile->settingsM_ID;
 	if (key_classname=="info_curve")
 	{
-		bool frad = 0;
+		bool frad = false;
 		
 		// first look if there is any rad command in the keylist
 		#if DEBUG > 0
@@ -366,7 +368,7 @@ void entity::GetIntMapSettings(vector<string> &MapSettings)
 			string name = Keys[k].name;
 			if (name=="rad")
 			{
-				frad++;
+				frad = true;
 				
 				#if DEBUG > 0
 				if (dev) cout << "   FOUND YA!" << endl;
@@ -374,7 +376,7 @@ void entity::GetIntMapSettings(vector<string> &MapSettings)
 			}
 		}
 		// if there isnt, add one
-		if (frad==0)
+		if (!frad)
 		{
 			#if DEBUG > 0
 			if (dev) cout << " Found NO rad keys in this info_curve entity! Adding one myself..." << endl;
@@ -475,8 +477,10 @@ void entity::CreateBrushes()
 		if (dev) cout << " Interpreting Entity Brushes & Faces..." << endl;
 		#endif
 		
-		int btable[t_brushes];
-		string b_import[t_faces][22]; // imported brush array; stores all available informations about each brush
+		// 使用兼容宏替代可变长度数组
+		INT_ARRAY(btable, t_brushes);
+		// 使用兼容宏替代可变长度数组
+		STRING_2D_ARRAY(b_import, t_faces, 22); // imported brush array; stores all available informations about each brush
 		
 		last = 1; int lastfam = 0;
 		for(int b = 0, maxf = 0; b < t_brushes; b++) // brush loop
@@ -575,32 +579,32 @@ void entity::CreateBrushes()
 				Face.Vertices = new vertex[3];
 				Face.vcount = 3;
 				
-				v1.x = stof(b_import[i][1]);
-				v1.y = stof(b_import[i][2]);
-				v1.z = stof(b_import[i][3]); 
-				v2.x = stof(b_import[i][4]);
-				v2.y = stof(b_import[i][5]);
-				v2.z = stof(b_import[i][6]); 
-				v3.x = stof(b_import[i][7]);
-				v3.y = stof(b_import[i][8]);
-				v3.z = stof(b_import[i][9]); 
-				vec1.x = stod(b_import[i][11]);
-				vec1.y = stod(b_import[i][12]);
-				vec1.z = stod(b_import[i][13]); 
-				vec2.x = stod(b_import[i][15]);
-				vec2.y = stod(b_import[i][16]);
-				vec2.z = stod(b_import[i][17]); 
+				v1.x = COMPAT_STOF(b_import[i][1]);
+				v1.y = COMPAT_STOF(b_import[i][2]);
+				v1.z = COMPAT_STOF(b_import[i][3]); 
+				v2.x = COMPAT_STOF(b_import[i][4]);
+				v2.y = COMPAT_STOF(b_import[i][5]);
+				v2.z = COMPAT_STOF(b_import[i][6]); 
+				v3.x = COMPAT_STOF(b_import[i][7]);
+				v3.y = COMPAT_STOF(b_import[i][8]);
+				v3.z = COMPAT_STOF(b_import[i][9]); 
+				vec1.x = COMPAT_STOD(b_import[i][11]);
+				vec1.y = COMPAT_STOD(b_import[i][12]);
+				vec1.z = COMPAT_STOD(b_import[i][13]); 
+				vec2.x = COMPAT_STOD(b_import[i][15]);
+				vec2.y = COMPAT_STOD(b_import[i][16]);
+				vec2.z = COMPAT_STOD(b_import[i][17]); 
 				Face.Vertices[0] = v1;
 				Face.Vertices[1] = v2;
 				Face.Vertices[2] = v3;
 				Face.VecX = vec1;
 				Face.VecY = vec2;
 				Face.Texture = b_import[i][10];
-				Face.ShiftX = stof(b_import[i][14]); 
-				Face.ShiftY = stof(b_import[i][18]); 
-				Face.Rot = stof(b_import[i][19]); // face rotation is being ignored on import
-				Face.ScaleX = stof(b_import[i][20]);
-				Face.ScaleY = stof(b_import[i][21]);
+				Face.ShiftX = COMPAT_STOF(b_import[i][14]); 
+				Face.ShiftY = COMPAT_STOF(b_import[i][18]); 
+				Face.Rot = COMPAT_STOF(b_import[i][19]); // face rotation is being ignored on import
+				Face.ScaleX = COMPAT_STOF(b_import[i][20]);
+				Face.ScaleY = COMPAT_STOF(b_import[i][21]);
 
 				#if DEBUG > 0
 				if (dev&&dev2) cout << "    Face " << f << endl;

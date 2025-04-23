@@ -9,6 +9,7 @@
 #include <string>
 #include <iomanip> // precision
 #include <fstream>
+#include <vector>
 
 #define DEBUG 0
 
@@ -1498,9 +1499,9 @@ void brush::Reconstruct()
 	#endif
 	
 	brush &Brush = *this;
-	bool DoRcon[Brush.t_faces]; // which faces are to be reconstructed
+	std::vector<bool> DoRcon(Brush.t_faces); // which faces are to be reconstructed
 	for (int f = 0; f<t_faces; f++)
-		DoRcon[f] = 1;
+		DoRcon[f] = true;
 	vector< vector<int> > ConList(t_faces); // connected Faces index list
 
 	ConList.resize(t_faces);
@@ -1686,7 +1687,7 @@ void brush::CheckForHoles(vector<int> &Neighbors)
 	//string Output = gFile->p_path+gFile->name;
 	//ExportBrushToOBJ(Output, Brush);
 	
-	// 3 connected Neighbors are necessary to get the missing vertex; otherwise ignore hole ¯\_(")_/¯
+	// 3 connected Neighbors are necessary to get the missing vertex; otherwise ignore hole ï¿½\_(")_/ï¿½
 	#if DEBUG > 0
 	if(dev) cout << "  3 connected Neighbors are necessary to get the missing vertex..." << endl;
 	#endif

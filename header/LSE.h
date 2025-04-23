@@ -1,5 +1,5 @@
 #include "face.h"
-#include<bits/stdc++.h>
+#include<stdc++.h>
 
 #ifndef __LSE_H_INCLUDED__
 #define __LSE_H_INCLUDED__

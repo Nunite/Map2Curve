@@ -1,5 +1,7 @@
 #include "RMF.h"
-
+#include "msvc_compat.h"
+#include <iostream>
+#include <fstream>
 
 using namespace std;
 
@@ -254,8 +256,10 @@ void RMF::WriteByte(float content)
 
 void RMF::WriteByteEmpty(int length)
 {
-	char dummy[length]; for(int i=0;i<length;i++) dummy[i]=0;
-	RMFBuffer.write((char*)&dummy, length);
+	// 使用兼容宏替代可变长度数组
+	CHAR_VLA(dummy, length); 
+	for(int i=0;i<length;i++) dummy[i]=0;
+	RMFBuffer.write((char*)&dummy[0], length);
 }
 
 void RMF::WriteTString(string s)
