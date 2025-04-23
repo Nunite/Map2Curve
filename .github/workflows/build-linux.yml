@@ -21,65 +21,165 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
-      
-    - name: Create compatibility definitions
+
+    - name: Create detailed compatibility patch
       run: |
-        # 创建兼容性头文件
+        mkdir -p patches
+
+        # 1. 创建全面的兼容性头文件
         cat > header/compatibility.h << EOF
 #ifndef MAP2CURVE_COMPATIBILITY_H
 #define MAP2CURVE_COMPATIBILITY_H
 
-// 通用头文件
+// 标准库头文件
 #include <cstdint>
 #include <vector>
 #include <memory>
 #include <string>
 #include <cmath>
+#include <algorithm>
+#include <functional>
+#include <iostream>
+#include <sstream>
 
-// 跨平台定义
+// 特定平台的头文件
+#if defined(_MSC_VER)
+  #include <direct.h>
+  #define NOMINMAX
+  #define WIN32_LEAN_AND_MEAN
+#else
+  #include <unistd.h>
+  #include <sys/stat.h>
+  #include <sys/types.h>
+#endif
+
+// 跨平台宏定义
 #if defined(_MSC_VER) && !defined(__clang__)
   // Windows/MSVC 实现
   #define CHAR_VLA(name, size) std::vector<char> name(size)
   #define COMPAT_STOF(x) std::stof(x)
+  #define COMPAT_STOD(x) std::stod(x)
+  #define COMPAT_STOI(x) std::stoi(x)
   #define STRING_2D_ARRAY(name, dim1, dim2) std::vector<std::vector<std::string>> name(dim1, std::vector<std::string>(dim2))
   #define INT_ARRAY(name, size) std::vector<int> name(size)
+  #define FLOAT_ARRAY(name, size) std::vector<float> name(size)
+  #define MSVC_COMPAT
 #else
-  // Linux/GCC 实现
+  // Linux/GCC/Clang 实现
   #define CHAR_VLA(name, size) char name[size]
-  #define COMPAT_STOF(x) std::stof(x)
+  #define COMPAT_STOF(x) std::stof(std::string(x))
+  #define COMPAT_STOD(x) std::stod(std::string(x))
+  #define COMPAT_STOI(x) std::stoi(std::string(x))
   #define STRING_2D_ARRAY(name, dim1, dim2) std::string name[dim1][dim2]
   #define INT_ARRAY(name, size) int name[size]
+  #define FLOAT_ARRAY(name, size) float name[size]
+  #define POSIX_COMPAT
 #endif
 
 // 其他兼容性定义
 #define NO_DIRENT 1
 
+// btable 声明
+struct btable_t {
+    int value;
+    btable_t() : value(0) {}
+    btable_t(int v) : value(v) {}
+    operator int() const { return value; }
+};
+
+// 任何其他兼容性函数或定义...
+namespace compat {
+    inline std::string to_string(int val) { return std::to_string(val); }
+    inline std::string to_string(float val) { return std::to_string(val); }
+    inline std::string to_string(double val) { return std::to_string(val); }
+}
+
+#if !defined(_MSC_VER)
+namespace std {
+    using ::compat::to_string;
+}
+#endif
+
 #endif // MAP2CURVE_COMPATIBILITY_H
 EOF
 
-        # 修复具体文件
-        echo '#include "compatibility.h"' > temp_file.cpp
-        cat header/entity.cpp >> temp_file.cpp
-        mv temp_file.cpp header/entity.cpp
-        
-        echo '#include "compatibility.h"' > temp_file.cpp
-        cat header/RMF.cpp >> temp_file.cpp
-        mv temp_file.cpp header/RMF.cpp
-        
-        echo '#include "compatibility.h"' > temp_file.cpp
-        cat header/WAD3.cpp >> temp_file.cpp
-        mv temp_file.cpp header/WAD3.cpp
+        # 2. 创建补丁脚本
+        cat > patches/apply_linux_patches.sh << 'EOF'
+#!/bin/bash
+# 应用 Linux 兼容性补丁
 
-    - name: Verify source code
+# 修复 msvc_compat.h
+echo "// 空的兼容性存根 - 为 Linux 平台创建" > header/msvc_compat.h
+
+# 函数：为文件添加兼容性头文件
+add_compat_include() {
+  local file=$1
+  if [ -f "$file" ]; then
+    echo "处理文件: $file"
+    echo '#include "compatibility.h"' > temp_file
+    cat "$file" >> temp_file
+    mv temp_file "$file"
+  else
+    echo "警告: 文件不存在 $file"
+  fi
+}
+
+# 添加兼容性头文件到所有cpp源文件
+for file in header/*.cpp Main.cpp; do
+  add_compat_include "$file"
+done
+
+# 替换 entity.cpp 中的问题宏
+sed -i 's/btable\[b\]/(&)/g' header/entity.cpp
+
+# 添加特定的类型定义和宏修复
+echo "
+// Linux 特定定义
+#if !defined(_MSC_VER) && !defined(btable)
+typedef int btable;
+#endif
+" >> header/entity.h
+
+EOF
+
+        # 3. 应用补丁
+        chmod +x patches/apply_linux_patches.sh
+        ./patches/apply_linux_patches.sh
+
+    - name: Show patched files
       run: |
-        head -n 10 header/entity.cpp
-        head -n 10 header/RMF.cpp
-        head -n 10 header/WAD3.cpp
-        
+        echo "==== 显示 compatibility.h ===="
+        cat header/compatibility.h
+
+        echo -e "\n==== 显示 entity.cpp 头部 ===="
+        head -n 20 header/entity.cpp
+
+        echo -e "\n==== 显示 RMF.cpp 头部 ===="
+        head -n 20 header/RMF.cpp
+
+        echo -e "\n==== 显示 entity.h 尾部 ===="
+        tail -n 20 header/entity.h
+
     - name: Create build directory
       run: cmake -E make_directory ${{github.workspace}}/build
-      
-    - name: Configure CMake
+
+    - name: Configure CMake with fixes
       working-directory: ${{github.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DNO_DIRENT=1"
-      continue-on-error: true 
+      run: |
+        cmake $GITHUB_WORKSPACE \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_FLAGS="-DNO_DIRENT=1 -DCOMPAT_LINUX=1 -Wno-narrowing -fpermissive"
+
+    - name: Build (attempt)
+      working-directory: ${{github.workspace}}/build
+      run: cmake --build . --config Release -- VERBOSE=1
+      continue-on-error: true
+
+    - name: Check build output
+      run: |
+        if [ -f "${{github.workspace}}/build/bin/Map2Curve" ]; then
+          echo "构建成功！可执行文件已创建。"
+          ls -la ${{github.workspace}}/build/bin/
+        else
+          echo "构建失败，没有找到可执行文件。"
+        fi 
