@@ -14,9 +14,17 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
         build_type: [Release]
+      fail-fast: false
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Install macOS dependencies
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install cmake
+      continue-on-error: true
 
     - name: Set up CMake
       uses: lukka/get-cmake@latest
@@ -27,12 +35,22 @@ jobs:
     - name: Configure CMake
       shell: bash
       working-directory: ${{github.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+      run: |
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+        else
+          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+        fi
 
     - name: Build
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: cmake --build . --config ${{matrix.build_type}}
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cmake --build . --config ${{matrix.build_type}} --parallel
+        else
+          cmake --build . --config ${{matrix.build_type}} -j $(nproc)
+        fi
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
@@ -40,4 +58,5 @@ jobs:
         name: Map2Curve-${{ matrix.os }}
         path: |
           ${{github.workspace}}/build/bin/*
-          !${{github.workspace}}/build/bin/*.pdb 
+          !${{github.workspace}}/build/bin/*.pdb
+      if: success() 
