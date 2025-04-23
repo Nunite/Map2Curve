@@ -61,17 +61,44 @@ jobs:
       with:
         fetch-depth: 1
 
-    # 修复 macOS 特定问题
-    - name: Fix macOS compatibility issues
+    # 修复 macOS 特定问题和源码问题
+    - name: Fix compatibility issues
       run: |
-        # 移除 UTF-16 编码文件
+        # 1. 修复头文件问题
         echo "// Empty compatibility stub - macOS version" > header/msvc_compat.h
-        # 创建一个兼容的文件以替代 cstdalign
+        
         mkdir -p build/compat_include
         echo "#ifndef CSTDALIGN_H" > build/compat_include/cstdalign
         echo "#define CSTDALIGN_H" >> build/compat_include/cstdalign
         echo "// Empty compatibility stub" >> build/compat_include/cstdalign
         echo "#endif" >> build/compat_include/cstdalign
+
+        # 2. 添加缺失的头文件包含
+        sed -i -i.bak '1i\
+#include <cstdint>' header/WAD3.cpp
+
+        # 3. 创建 CHAR_VLA 宏定义
+        cat > header/platform_compat.h << 'EOF'
+#ifndef PLATFORM_COMPAT_H
+#define PLATFORM_COMPAT_H
+
+#include <vector>
+#include <memory>
+
+#if defined(_MSC_VER) && !defined(__clang__)
+    // MSVC implementation
+    #define CHAR_VLA(name, size) std::vector<char> name(size)
+#else
+    // GCC/Clang implementation
+    #define CHAR_VLA(name, size) char name[size]
+#endif
+
+#endif // PLATFORM_COMPAT_H
+EOF
+
+        # 4. 修复 RMF.cpp
+        sed -i -i.bak '1i\
+#include "platform_compat.h"' header/RMF.cpp
 
     - name: Install macOS dependencies
       run: |
@@ -118,12 +145,12 @@ jobs:
       with:
         fetch-depth: 1
 
-    # 修复 Linux 特定问题
-    - name: Fix Linux compatibility issues
+    # 修复 Linux 特定问题和源码问题
+    - name: Fix compatibility issues
       run: |
-        # 移除 UTF-16 编码文件
+        # 1. 修复头文件问题
         echo "// Empty compatibility stub - Linux version" > header/msvc_compat.h
-        # 创建一个兼容的文件以替代 Windows 特定文件
+        
         mkdir -p build/compat_include
         echo "#ifndef CRTDEFS_H" > build/compat_include/crtdefs.h
         echo "#define CRTDEFS_H" >> build/compat_include/crtdefs.h
@@ -135,11 +162,44 @@ jobs:
         echo "// Empty compatibility stub" >> build/compat_include/cstdalign
         echo "#endif" >> build/compat_include/cstdalign
 
+        # 2. 添加缺失的头文件包含
+        sed -i '1i\
+#include <cstdint>' header/WAD3.cpp
+
+        # 3. 创建 CHAR_VLA 宏定义
+        cat > header/platform_compat.h << 'EOF'
+#ifndef PLATFORM_COMPAT_H
+#define PLATFORM_COMPAT_H
+
+#include <vector>
+#include <memory>
+
+#if defined(_MSC_VER) && !defined(__clang__)
+    // MSVC implementation
+    #define CHAR_VLA(name, size) std::vector<char> name(size)
+#else
+    // GCC/Clang implementation
+    #define CHAR_VLA(name, size) char name[size]
+#endif
+
+#endif // PLATFORM_COMPAT_H
+EOF
+
+        # 4. 修复 RMF.cpp
+        sed -i '1i\
+#include "platform_compat.h"' header/RMF.cpp
+
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
       continue-on-error: true
+
+    - name: Debug - Show modified files
+      run: |
+        cat header/platform_compat.h
+        head -n 10 header/WAD3.cpp
+        head -n 10 header/RMF.cpp
 
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/build
