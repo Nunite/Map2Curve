@@ -70,13 +70,6 @@ jobs:
           cd artifacts
           zip -r ../release_assets/Map2Curve-Windows.zip windows/
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          # 获取最新的提交信息用作更新日志
-          CHANGES=$(git log -3 --pretty=format:"* %s (%h)")
-          echo "changelog=$CHANGES" >> "$GITHUB_OUTPUT"
-
       - name: Create Release Draft
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -87,8 +80,9 @@ jobs:
           body: |
             Map2Curve 自动构建版本
             
-            变更记录：
-            ${{ steps.changelog.outputs.changelog }}
+            最近三次提交:
+            
+            ${{ join(toJSON(github.event.commits.*.message), '\n') }}
           files: |
             release_assets/Map2Curve-Windows.zip
         env:
