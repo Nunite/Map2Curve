@@ -7,12 +7,11 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
         build_type: [Release]
       fail-fast: false
 
@@ -22,13 +21,6 @@ jobs:
       with:
         fetch-depth: 1
 
-    - name: Install macOS dependencies
-      if: runner.os == 'macOS'
-      run: |
-        brew update
-        brew install cmake
-      continue-on-error: true
-
     - name: Set up CMake
       uses: lukka/get-cmake@latest
 
@@ -36,31 +28,137 @@ jobs:
       run: cmake -E make_directory ${{github.workspace}}/build
 
     - name: Configure CMake
-      shell: bash
       working-directory: ${{github.workspace}}/build
-      run: |
-        if [ "$RUNNER_OS" == "macOS" ]; then
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
-        else
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
-        fi
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
 
     - name: Build
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake --build . --config ${{matrix.build_type}} --parallel
-        else
-          cmake --build . --config ${{matrix.build_type}} -j $(nproc)
-        fi
+      run: cmake --build . --config ${{matrix.build_type}} --parallel
 
     - name: Upload Artifacts
       if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: Map2Curve-${{ matrix.os }}-${{ matrix.build_type }}
+        name: Map2Curve-Windows-${{ matrix.build_type }}
         path: |
           ${{github.workspace}}/build/bin/*
           !${{github.workspace}}/build/bin/*.pdb
+        retention-days: 5
+
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build_type: [Release]
+      fail-fast: false
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    # 修复 macOS 特定问题
+    - name: Fix macOS compatibility issues
+      run: |
+        # 移除 UTF-16 编码文件
+        echo "// Empty compatibility stub - macOS version" > header/msvc_compat.h
+        # 创建一个兼容的文件以替代 cstdalign
+        mkdir -p build/compat_include
+        echo "#ifndef CSTDALIGN_H" > build/compat_include/cstdalign
+        echo "#define CSTDALIGN_H" >> build/compat_include/cstdalign
+        echo "// Empty compatibility stub" >> build/compat_include/cstdalign
+        echo "#endif" >> build/compat_include/cstdalign
+
+    - name: Install macOS dependencies
+      run: |
+        brew update
+        brew install cmake coreutils
+      continue-on-error: true
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{github.workspace}}/build
+
+    - name: Configure CMake
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS="-I${{github.workspace}}/build/compat_include -DNO_DIRENT=1"
+
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: |
+        # 使用 macOS 上可用的命令
+        cores=$(sysctl -n hw.ncpu)
+        cmake --build . --config ${{matrix.build_type}} -j $cores
+
+    - name: Upload Artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Map2Curve-macOS-${{ matrix.build_type }}
+        path: |
+          ${{github.workspace}}/build/bin/*
+        retention-days: 5
+
+  build-linux:
+    name: Build on Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Release]
+      fail-fast: false
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    # 修复 Linux 特定问题
+    - name: Fix Linux compatibility issues
+      run: |
+        # 移除 UTF-16 编码文件
+        echo "// Empty compatibility stub - Linux version" > header/msvc_compat.h
+        # 创建一个兼容的文件以替代 Windows 特定文件
+        mkdir -p build/compat_include
+        echo "#ifndef CRTDEFS_H" > build/compat_include/crtdefs.h
+        echo "#define CRTDEFS_H" >> build/compat_include/crtdefs.h
+        echo "// Empty compatibility stub" >> build/compat_include/crtdefs.h
+        echo "#endif" >> build/compat_include/crtdefs.h
+        
+        echo "#ifndef CSTDALIGN_H" > build/compat_include/cstdalign
+        echo "#define CSTDALIGN_H" >> build/compat_include/cstdalign
+        echo "// Empty compatibility stub" >> build/compat_include/cstdalign
+        echo "#endif" >> build/compat_include/cstdalign
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+      continue-on-error: true
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{github.workspace}}/build
+
+    - name: Configure CMake
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS="-I${{github.workspace}}/build/compat_include -DNO_DIRENT=1"
+
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake --build . --config ${{matrix.build_type}} -j $(nproc)
+
+    - name: Upload Artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Map2Curve-Linux-${{ matrix.build_type }}
+        path: |
+          ${{github.workspace}}/build/bin/*
         retention-days: 5 
