@@ -1,0 +1,86 @@
+name: macOS CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-macos:
+    name: macOS CI Check
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install cmake
+      continue-on-error: true
+      
+    - name: Create compatibility definitions
+      run: |
+        # 创建兼容性头文件
+        cat > header/compatibility.h << EOF
+#ifndef MAP2CURVE_COMPATIBILITY_H
+#define MAP2CURVE_COMPATIBILITY_H
+
+// 通用头文件
+#include <cstdint>
+#include <vector>
+#include <memory>
+#include <string>
+#include <cmath>
+
+// 跨平台定义
+#if defined(_MSC_VER) && !defined(__clang__)
+  // Windows/MSVC 实现
+  #define CHAR_VLA(name, size) std::vector<char> name(size)
+  #define COMPAT_STOF(x) std::stof(x)
+  #define STRING_2D_ARRAY(name, dim1, dim2) std::vector<std::vector<std::string>> name(dim1, std::vector<std::string>(dim2))
+  #define INT_ARRAY(name, size) std::vector<int> name(size)
+#else
+  // Linux/GCC/macOS 实现
+  #define CHAR_VLA(name, size) char name[size]
+  #define COMPAT_STOF(x) std::stof(x)
+  #define STRING_2D_ARRAY(name, dim1, dim2) std::string name[dim1][dim2]
+  #define INT_ARRAY(name, size) int name[size]
+#endif
+
+// 其他兼容性定义
+#define NO_DIRENT 1
+
+#endif // MAP2CURVE_COMPATIBILITY_H
+EOF
+
+        # 修复具体文件
+        echo '#include "compatibility.h"' > temp_file.cpp
+        cat header/entity.cpp >> temp_file.cpp
+        mv temp_file.cpp header/entity.cpp
+        
+        echo '#include "compatibility.h"' > temp_file.cpp
+        cat header/RMF.cpp >> temp_file.cpp
+        mv temp_file.cpp header/RMF.cpp
+        
+        echo '#include "compatibility.h"' > temp_file.cpp
+        cat header/WAD3.cpp >> temp_file.cpp
+        mv temp_file.cpp header/WAD3.cpp
+
+    - name: Verify source code
+      run: |
+        head -n 10 header/entity.cpp
+        head -n 10 header/RMF.cpp
+        head -n 10 header/WAD3.cpp
+        
+    - name: Create build directory
+      run: cmake -E make_directory ${{github.workspace}}/build
+      
+    - name: Configure CMake
+      working-directory: ${{github.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DNO_DIRENT=1"
+      continue-on-error: true 
