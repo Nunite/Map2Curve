@@ -46,6 +46,7 @@ struct file {
 	// load and process map data
 	void GetInfo();
 	void CheckForCustomSource();
+	void RemoveMapComments(); // 新增函数，用于移除地图文件中的注释行
 	void LoadMap();
 	void LoadMap_DetailObj();
 	void LoadMap_GetEntities();

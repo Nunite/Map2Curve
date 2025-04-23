@@ -58,9 +58,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 # 根据操作系统添加特定定义
 if(WIN32)
-    # 添加图标资源
     set(MAP2CURVE_ICON_RESOURCE "${CMAKE_SOURCE_DIR}/Map2Curve_private.rc")
-    # Windows特定定义
     add_definitions(
         -DWINDOWS
         -D_USE_MATH_DEFINES
@@ -99,8 +97,12 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/header
 )
 
-# 创建可执行文件
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} ${MAP2CURVE_ICON_RESOURCE})
+# 创建可执行文件（仅Windows下添加资源文件）
+if(WIN32)
+    add_executable(${PROJECT_NAME} ${SOURCES} ${MAP2CURVE_ICON_RESOURCE})
+else()
+    add_executable(${PROJECT_NAME} ${SOURCES})
+endif()
 
 # MSVC特定定义 - 增加兼容性
 if(MSVC)

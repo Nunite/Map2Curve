@@ -445,6 +445,7 @@ void entity::CreateBrushes()
 		int found = 0, last = head_end;
 		while (found!=-1) // count all faces
 		{
+			// 原本的面元素检测
 			found = content.find("(", last);
 			
 			#if DEBUG > 0
@@ -493,8 +494,40 @@ void entity::CreateBrushes()
 		last = 1; int lastfam = 0;
 		for(int b = 0, maxf = 0; b < t_brushes; b++) // brush loop
 		{
-			int bstart = content.find("{\n( ",last);
-			int blen = content.find("\n}\n",bstart)-bstart;
+			// 先尝试原始模式
+			int bstart = content.find("{\n( ", last);
+			
+			// 如果找不到，尝试替代模式
+			if (bstart == -1) {
+				// 先找到大括号
+				bstart = content.find("{", last);
+				if (bstart != -1) {
+					// 成功找到大括号，然后找最近的"("
+					int pointPos = content.find("(", bstart);
+					// 确保找到的"("在合理范围内
+					int nextBracePos = content.find("{", bstart+1);
+					if (pointPos == -1 || (nextBracePos != -1 && pointPos > nextBracePos)) {
+						bstart = -1;
+					}
+				}
+			}
+			
+			if (bstart == -1) {
+				// 如果依然找不到有效的刷子开始点，跳过这个刷子
+				continue;
+			}
+			
+			int blen = content.find("\n}\n", bstart);
+			if (blen == -1) {
+				// 如果找不到标准的结束，尝试其他可能的结束模式
+				blen = content.find("}", bstart);
+				if (blen == -1) {
+					continue; // 如果依然找不到结束点，跳过
+				}
+			}
+			
+			// 计算刷子长度
+			blen = blen - bstart;
 			
 			#if DEBUG > 0
 			if (dev&&dev2) cout << "  Brush " << b << ", bstart " << bstart << ", blen " << blen << endl;

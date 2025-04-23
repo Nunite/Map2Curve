@@ -1275,7 +1275,23 @@ void file::LoadMap_GetEntities()
 	int eID = 0;
 	while (findEntStart!=-1)
 	{
+		// 先尝试原始格式
 		findEntStart = str_map.find("{\n\"classname\"", lastEntPos);
+		
+		// 如果找不到，尝试替代格式
+		if (findEntStart == -1) {
+			findEntStart = str_map.find("{", lastEntPos);
+			if (findEntStart != -1) {
+				// 找到"{"后，先往后找下一个"{"
+				int nextBracePos = str_map.find("{", findEntStart+1);
+				// 然后找下一个"classname"
+				int classNamePos = str_map.find("\"classname\"", findEntStart);
+				// 确保找到的"classname"在合理范围内
+				if (classNamePos == -1 || (nextBracePos != -1 && classNamePos > nextBracePos)) {
+					findEntStart = -1;
+				}
+			}
+		}
 		
 		if (findEntStart!=-1)
 		{
@@ -2661,11 +2677,38 @@ void file::createGroupSource()
 	#endif
 }
 
+void file::RemoveMapComments()
+{
+	string cleaned_map = "";
+	size_t pos = 0;
+	size_t line_start = 0;
+	
+	while (pos < str_map.length()) {
+		line_start = pos;
+		size_t line_end = str_map.find("\n", pos);
+		if (line_end == string::npos) line_end = str_map.length();
+		
+		string line = str_map.substr(line_start, line_end - line_start);
+		// 跳过以"//"开头的注释行
+		if (line.length() < 2 || line[0] != '/' || line[1] != '/') {
+			cleaned_map += line + "\n";
+		}
+		
+		pos = line_end + 1;
+		if (line_end == str_map.length()) break;
+	}
+	
+	str_map = cleaned_map;
+}
+
 void file::LoadMap()
 {
 	#if DEBUG > 0
 	bool dev = 0;
 	#endif
+	
+	// 预处理地图文件，移除注释行
+	RemoveMapComments();
 	
 	#if DEBUG > 0
 	if (dev) cout << " createGroupMap..."<<endl;
