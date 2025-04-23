@@ -74,33 +74,31 @@ jobs:
         echo "#endif" >> build/compat_include/cstdalign
 
         # 2. 添加缺失的头文件包含
-        sed -i '' '1i\\
-#include <cstdint>
-' header/WAD3.cpp
+        echo '#include <cstdint>' > temp_header.txt
+        cat header/WAD3.cpp >> temp_header.txt
+        mv temp_header.txt header/WAD3.cpp
 
         # 3. 创建 CHAR_VLA 宏定义
-        cat > header/platform_compat.h << EOF
-#ifndef PLATFORM_COMPAT_H
-#define PLATFORM_COMPAT_H
-
-#include <vector>
-#include <memory>
-
-#if defined(_MSC_VER) && !defined(__clang__)
-    // MSVC implementation
-    #define CHAR_VLA(name, size) std::vector<char> name(size)
-#else
-    // GCC/Clang implementation
-    #define CHAR_VLA(name, size) char name[size]
-#endif
-
-#endif // PLATFORM_COMPAT_H
-EOF
+        echo "#ifndef PLATFORM_COMPAT_H" > header/platform_compat.h
+        echo "#define PLATFORM_COMPAT_H" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#include <vector>" >> header/platform_compat.h
+        echo "#include <memory>" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#if defined(_MSC_VER) && !defined(__clang__)" >> header/platform_compat.h
+        echo "    // MSVC implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) std::vector<char> name(size)" >> header/platform_compat.h
+        echo "#else" >> header/platform_compat.h
+        echo "    // GCC/Clang implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) char name[size]" >> header/platform_compat.h
+        echo "#endif" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#endif // PLATFORM_COMPAT_H" >> header/platform_compat.h
 
         # 4. 修复 RMF.cpp
-        sed -i '' '1i\\
-#include "platform_compat.h"
-' header/RMF.cpp
+        echo '#include "platform_compat.h"' > temp_rmf.txt
+        cat header/RMF.cpp >> temp_rmf.txt
+        mv temp_rmf.txt header/RMF.cpp
 
     - name: Install macOS dependencies
       run: |
@@ -165,31 +163,31 @@ EOF
         echo "#endif" >> build/compat_include/cstdalign
 
         # 2. 添加缺失的头文件包含
-        sed -i '1i\
-#include <cstdint>' header/WAD3.cpp
+        echo '#include <cstdint>' > temp_header.txt
+        cat header/WAD3.cpp >> temp_header.txt
+        mv temp_header.txt header/WAD3.cpp
 
         # 3. 创建 CHAR_VLA 宏定义
-        cat > header/platform_compat.h << EOF
-#ifndef PLATFORM_COMPAT_H
-#define PLATFORM_COMPAT_H
-
-#include <vector>
-#include <memory>
-
-#if defined(_MSC_VER) && !defined(__clang__)
-    // MSVC implementation
-    #define CHAR_VLA(name, size) std::vector<char> name(size)
-#else
-    // GCC/Clang implementation
-    #define CHAR_VLA(name, size) char name[size]
-#endif
-
-#endif // PLATFORM_COMPAT_H
-EOF
+        echo "#ifndef PLATFORM_COMPAT_H" > header/platform_compat.h
+        echo "#define PLATFORM_COMPAT_H" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#include <vector>" >> header/platform_compat.h
+        echo "#include <memory>" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#if defined(_MSC_VER) && !defined(__clang__)" >> header/platform_compat.h
+        echo "    // MSVC implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) std::vector<char> name(size)" >> header/platform_compat.h
+        echo "#else" >> header/platform_compat.h
+        echo "    // GCC/Clang implementation" >> header/platform_compat.h
+        echo "    #define CHAR_VLA(name, size) char name[size]" >> header/platform_compat.h
+        echo "#endif" >> header/platform_compat.h
+        echo "" >> header/platform_compat.h
+        echo "#endif // PLATFORM_COMPAT_H" >> header/platform_compat.h
 
         # 4. 修复 RMF.cpp
-        sed -i '1i\
-#include "platform_compat.h"' header/RMF.cpp
+        echo '#include "platform_compat.h"' > temp_rmf.txt
+        cat header/RMF.cpp >> temp_rmf.txt
+        mv temp_rmf.txt header/RMF.cpp
 
     - name: Install Linux dependencies
       run: |
