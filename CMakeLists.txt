@@ -43,9 +43,13 @@ else()
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         # 特定于GCC的选项
         add_compile_options(-Wno-pedantic -Wno-double-promotion -Wno-int-in-bool-context)
+        # 添加 Linux 特定选项
+        add_compile_options(-fpermissive -Wno-narrowing)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # 特定于Clang的选项
         add_compile_options(-Wno-unused-private-field -Wno-vla-extension)
+        # 添加 macOS 特定选项
+        add_compile_options(-fpermissive -Wno-narrowing)
     endif()
 endif()
 
@@ -64,9 +68,13 @@ if(WIN32)
         -DNOMINMAX
     )
 elseif(APPLE)
-    add_definitions(-DAPPLE -D_USE_MATH_DEFINES)
+    add_definitions(-DAPPLE -D_USE_MATH_DEFINES -DCOMPAT_MACOS)
+    # macOS特定处理 - 使用兼容性文件
+    configure_file(${CMAKE_SOURCE_DIR}/header/msvc_compat_linux.h ${CMAKE_SOURCE_DIR}/header/msvc_compat.h COPYONLY)
 elseif(UNIX AND NOT APPLE)
-    add_definitions(-DLINUX -D_USE_MATH_DEFINES)
+    add_definitions(-DLINUX -D_USE_MATH_DEFINES -DCOMPAT_LINUX)
+    # Linux特定处理 - 使用兼容性文件
+    configure_file(${CMAKE_SOURCE_DIR}/header/msvc_compat_linux.h ${CMAKE_SOURCE_DIR}/header/msvc_compat.h COPYONLY)
 endif()
 
 # 应用程序版本设置

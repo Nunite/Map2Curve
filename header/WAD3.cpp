@@ -1,3 +1,6 @@
+#ifdef __linux__
+#include "linux_compat.h"
+#endif
 
 #include "WAD3.h"
 #include <iostream>

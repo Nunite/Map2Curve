@@ -1,3 +1,7 @@
+#ifdef __linux__
+#include "linux_compat.h"
+#endif
+
 #include "RMF.h"
 #include "msvc_compat.h"
 #include <iostream>
