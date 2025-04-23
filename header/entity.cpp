@@ -1,7 +1,3 @@
-#ifdef __linux__
-#include "linux_compat.h"
-#endif
-
 #include "entity.h"
 #include "vertex.h"
 #include "face.h"
