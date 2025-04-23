@@ -74,11 +74,12 @@ jobs:
         echo "#endif" >> build/compat_include/cstdalign
 
         # 2. 添加缺失的头文件包含
-        sed -i -i.bak '1i\
-#include <cstdint>' header/WAD3.cpp
+        sed -i '' '1i\\
+#include <cstdint>
+' header/WAD3.cpp
 
         # 3. 创建 CHAR_VLA 宏定义
-        cat > header/platform_compat.h << 'EOF'
+        cat > header/platform_compat.h << EOF
 #ifndef PLATFORM_COMPAT_H
 #define PLATFORM_COMPAT_H
 
@@ -97,8 +98,9 @@ jobs:
 EOF
 
         # 4. 修复 RMF.cpp
-        sed -i -i.bak '1i\
-#include "platform_compat.h"' header/RMF.cpp
+        sed -i '' '1i\\
+#include "platform_compat.h"
+' header/RMF.cpp
 
     - name: Install macOS dependencies
       run: |
@@ -167,7 +169,7 @@ EOF
 #include <cstdint>' header/WAD3.cpp
 
         # 3. 创建 CHAR_VLA 宏定义
-        cat > header/platform_compat.h << 'EOF'
+        cat > header/platform_compat.h << EOF
 #ifndef PLATFORM_COMPAT_H
 #define PLATFORM_COMPAT_H
 
