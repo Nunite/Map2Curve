@@ -74,9 +74,8 @@ jobs:
         id: changelog
         run: |
           # 获取最新的提交信息用作更新日志
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          git log -3 --pretty=format:"* %s (%h)" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          CHANGES=$(git log -3 --pretty=format:"* %s (%h)")
+          echo "changelog=$CHANGES" >> "$GITHUB_OUTPUT"
 
       - name: Create Release Draft
         id: create_release
